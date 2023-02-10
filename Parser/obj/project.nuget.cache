@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "PbhQAXw88n4lNxPwbAKo2u+kfRrnu9pXkcyqQLolhuWzPXYQZZ351E0PnmMXH7edgzgQXZv/X47T6r5zHmWsjA==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\ted70\\RiderProjects\\Parser\\Parser\\Parser.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ted70\\.nuget\\packages\\anglesharp\\1.0.1\\anglesharp.1.0.1.nupkg.sha512",
+    "C:\\Users\\ted70\\.nuget\\packages\\newtonsoft.json\\13.0.3-beta1\\newtonsoft.json.13.0.3-beta1.nupkg.sha512",
+    "C:\\Users\\ted70\\.nuget\\packages\\system.buffers\\4.5.1\\system.buffers.4.5.1.nupkg.sha512",
+    "C:\\Users\\ted70\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\ted70\\.nuget\\packages\\system.text.encoding.codepages\\6.0.0\\system.text.encoding.codepages.6.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
