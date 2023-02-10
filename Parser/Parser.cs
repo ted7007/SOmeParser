@@ -10,18 +10,6 @@ namespace Parser;
 
 public class ParserBook
 {
-    private readonly string _igraSlovAddress = "https://igraslov.store/shop/";
-    private readonly string _labirintAddress = "https://new.chitai-gorod.ru/search?q=";
-    private readonly HttpClient _client;
-    private readonly IBrowsingContext _context;
-
-
-    public ParserBook()
-    {
-        _client = new HttpClient();
-        _context = BrowsingContext.New(Configuration.Default.WithDefaultLoader());
-    }
-
     public static IDocument GetDocument(string url)
     {
         var config = Configuration.Default.WithDefaultLoader();
