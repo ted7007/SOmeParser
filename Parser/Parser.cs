@@ -107,7 +107,7 @@ public class ParserBook
         return book;
     }
     
-    public async Task StartParsingAsync(int maxCountISBNs)
+    public async Task StartParsingAsync()
     {
         var finalBooks = new List<Book>();
         var booksUch = await ParserBookInfo("https://globusbooks.ru/catalog/uchebnaya_literatura/", 311);   // 311

@@ -17,7 +17,6 @@ public class Book
 
     public string SourceName { get; set; }
     
-    //todo разобраться с картинкой
     public string Image { get; set; }
 
     public int NumberOfPages { get; set; }
