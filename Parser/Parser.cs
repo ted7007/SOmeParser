@@ -26,11 +26,11 @@ public class ParserBook
             try
             {
                 DateTime now = DateTime.Now;
-                var document2 = GetDocument(urlWithCollection + Convert.ToString(i));
+                var document2 = GetDocument(urlWithCollection + i);
 
 
                 var textWitHResultSearchElements =
-                    document2.GetElementsByClassName("product-card");
+                    document2.GetElementsByClassName("col-lg-4 col-md-6 col-sm-6 col-xs-12");
                 
                 if ((textWitHResultSearchElements.Length == 0))
                 {
@@ -38,13 +38,10 @@ public class ParserBook
                     continue;
                 }
                 Console.WriteLine($"Page - {i} was readed, count = {textWitHResultSearchElements.Length}");
-               // Console.WriteLine("Page - "+(i+1));
                 foreach (var bookFromList in textWitHResultSearchElements)
                 {
                     var book = ParseICollection(bookFromList);
                     books.Add(book);
-                    //Console.WriteLine($"Got book -  {book.Name}; Price - {book.Price}; Remainder - {book.Remainder}");
-                    //Console.WriteLine();
                 }
                 DateTime end = DateTime.Now;
                 Console.WriteLine($"Page - {i} was parsed, count in thread = {books.Count}; time - {new TimeSpan((end-now).Ticks).TotalMinutes} min");
@@ -140,72 +137,16 @@ public class ParserBook
     
     public async Task StartParsingAsync()
     {
-        Console.WriteLine("ВВЕДИТЕ СТРАНИЦУ С КОТОРОЙ ПАРСИТЬ, БЕЗ ПРОБЕЛОВ И ДРУГИХ ЗНАКОВ");
-        //string startStr = Console.ReadLine();
         var finalBooks = new List<Book>();
-        List<Book> parsedBooks1 = new List<Book>();
-        List<Book> parsedBooks2 = new List<Book>();
-        List<Book> parsedBooks3 = new List<Book>();
-        List<Book> parsedBooks4 = new List<Book>();
-        List<Book> parsedBooks5 = new List<Book>();
-        List<Book> parsedBooks6 = new List<Book>();
-        List<Book> parsedBooks7 = new List<Book>();
-        List<Book> parsedBooks8 = new List<Book>();
-        var address = "https://tochka24.com/catalog/books?limit=500&page=";
-        var count = 305;
+        var address = "https://hobbygames.ru/knigi-i-zhurnali?results_per_page=60&parameter_type=0&page=";
+        var count = 22;
         var countOne = 39;
-        int start = 0;
-        Task t1 = Task.Run(async () =>
-        { 
-            parsedBooks1 = await ParseBookInfo(address, start, countOne + start);
-            
-            WriteToJSON("BooksFromTochka1.json", parsedBooks1);
-            parsedBooks1.Clear();
-            
-        });
-        Task t2 = Task.Run(async () =>
-        {
-             parsedBooks2 = await ParseBookInfo(address, countOne + start + 1, countOne * 2 + start);
-            WriteToJSON("BooksFromTochka2.json", parsedBooks2);
-            parsedBooks1.Clear();
-        });
-        Task t3 = Task.Run(async () =>
-        {
-             parsedBooks3 = await ParseBookInfo(address, countOne * 2 + start + 1, countOne * 3 + start);
-             WriteToJSON("BooksFromTochka3.json", parsedBooks3);
-             parsedBooks1.Clear();
-        });
-        Task t4 = Task.Run(async () =>
-        {
-             parsedBooks4 = await ParseBookInfo(address, countOne * 3 + start + 1, countOne * 4 + start);
-             WriteToJSON("BooksFromTochka4.json", parsedBooks4);
-             parsedBooks1.Clear();
-        });
-        Task t5 = Task.Run(async () =>
-        {
-             parsedBooks5 = await ParseBookInfo(address, start + countOne * 4 + 1, countOne * 5 + start);
-             WriteToJSON("BooksFromTochka5.json", parsedBooks5);
-             parsedBooks1.Clear();
-        });
-        Task t6 = Task.Run(async () =>
-        {
-             parsedBooks2 = await ParseBookInfo(address, start + countOne * 5 + 1, countOne * 6 + start);
-             WriteToJSON("BooksFromTochka6.json", parsedBooks6);
-             parsedBooks1.Clear();
-        });
-        Task t7 = Task.Run(async () =>
-        {
-             parsedBooks3 = await ParseBookInfo(address, start + countOne * 6 + 1, countOne * 7 + start);
-             WriteToJSON("BooksFromTochka7.json", parsedBooks7);
-             parsedBooks1.Clear();
-        });
-        Task t8 = Task.Run(async () =>
-        {
-             parsedBooks4 = await ParseBookInfo(address, start + countOne * 7 + 1, countOne * 8 + start);
-             WriteToJSON("BooksFromTochka8.json", parsedBooks8);
-             parsedBooks1.Clear();
-        });
-        Task.WaitAll(t1, t2, t3, t4,t5,t7,t8);
+        int start = 1;
+        var parsedBooks = await ParseBookInfo(address, start, countOne + start);
+        
+        finalBooks.AddRange(parsedBooks);
+        WriteToJSON("BooksFromTochka1.json", finalBooks);
+        Console.WriteLine($"Parsed finished work. Parsed {finalBooks.Count}");
         Console.ReadLine();
     }
 
