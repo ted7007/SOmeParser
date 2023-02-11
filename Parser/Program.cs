@@ -5,4 +5,5 @@ using Parser;
 Console.WriteLine("Hello, World!");
 
 ParserBook parser = new ParserBook();
+
 parser.StartParsingAsync();
