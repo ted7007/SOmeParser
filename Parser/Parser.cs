@@ -167,43 +167,43 @@ public class ParserBook
         {
              parsedBooks2 = await ParseBookInfo(address, countOne + start + 1, countOne * 2 + start);
             WriteToJSON("BooksFromTochka2.json", parsedBooks2);
-            parsedBooks1.Clear();
+            parsedBooks2.Clear();
         });
         Task t3 = Task.Run(async () =>
         {
              parsedBooks3 = await ParseBookInfo(address, countOne * 2 + start + 1, countOne * 3 + start);
              WriteToJSON("BooksFromTochka3.json", parsedBooks3);
-             parsedBooks1.Clear();
+             parsedBooks3.Clear();
         });
         Task t4 = Task.Run(async () =>
         {
              parsedBooks4 = await ParseBookInfo(address, countOne * 3 + start + 1, countOne * 4 + start);
              WriteToJSON("BooksFromTochka4.json", parsedBooks4);
-             parsedBooks1.Clear();
+             parsedBooks4.Clear();
         });
         Task t5 = Task.Run(async () =>
         {
              parsedBooks5 = await ParseBookInfo(address, start + countOne * 4 + 1, countOne * 5 + start);
              WriteToJSON("BooksFromTochka5.json", parsedBooks5);
-             parsedBooks1.Clear();
+             parsedBooks5.Clear();
         });
         Task t6 = Task.Run(async () =>
         {
-             parsedBooks2 = await ParseBookInfo(address, start + countOne * 5 + 1, countOne * 6 + start);
+             parsedBooks6 = await ParseBookInfo(address, start + countOne * 5 + 1, countOne * 6 + start);//196-234
              WriteToJSON("BooksFromTochka6.json", parsedBooks6);
-             parsedBooks1.Clear();
+             parsedBooks6.Clear();
         });
         Task t7 = Task.Run(async () =>
         {
-             parsedBooks3 = await ParseBookInfo(address, start + countOne * 6 + 1, countOne * 7 + start);
+             parsedBooks7 = await ParseBookInfo(address, start + countOne * 6 + 1, countOne * 7 + start); //235-273
              WriteToJSON("BooksFromTochka7.json", parsedBooks7);
-             parsedBooks1.Clear();
+             parsedBooks7.Clear();
         });
         Task t8 = Task.Run(async () =>
         {
-             parsedBooks4 = await ParseBookInfo(address, start + countOne * 7 + 1, countOne * 8 + start);
+             parsedBooks8 = await ParseBookInfo(address, start + countOne * 7 + 1, countOne * 8 + start);//274-312
              WriteToJSON("BooksFromTochka8.json", parsedBooks8);
-             parsedBooks1.Clear();
+             parsedBooks8.Clear();
         });
         Task.WaitAll(t1, t2, t3, t4,t5,t7,t8);
         Console.ReadLine();
