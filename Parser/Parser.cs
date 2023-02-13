@@ -30,7 +30,7 @@ public class ParserBook
 
 
                 var textWitHResultSearchElements =
-                    document2.GetElementsByClassName("product-card");
+                    document2.GetElementsByClassName("product-thumb");
                 
                 if ((textWitHResultSearchElements.Length == 0))
                 {
@@ -64,10 +64,7 @@ public class ParserBook
     private Book ParseICollection(IElement element)
     {
         
-        string refToBook = element.GetElementsByTagName("a")[0]
-            .Attributes["href"].Value;
-        //Console.WriteLine("AddToRef is " + refToBook);
-        var BookInfo = GetDocument(refToBook);
+        
         string BoookName ="";
         int Remainder =0;
         int Price=0;
@@ -76,29 +73,16 @@ public class ParserBook
         string Genre = "";
         String Image = "";
         int NumberPages = 0;
+        string ISBN = "";
         try
         {
+            string refToBook = element.Children[0].Children[0].Attributes["href"].Value;
+            var BookInfo = GetDocument(refToBook);
             BoookName = BookInfo.GetElementsByTagName("h1")[0].TextContent;
-           // Remainder = Int32.Parse(
-            //    .TextContent.Split(' ')[0]);
-            //var element2 = BookInfo.GetElementsByClassName("stock")[0].Children[0];
-            //var element4 = element2.TextContent.Split(' ')[3];
-            var div = BookInfo.QuerySelector("div.stock strong");
-            if(div != null)
-            {
-               // string res;
-                Remainder = Int32.Parse(div.TextContent.Split(' ')[0]);
-            }
-            // return null;
-
-
-            
-            //Price = Int32.Parse(BookInfo.QuerySelector("div.price").TextContent.Replace(" ", ""));//GetElementsByClassName("price")[0].TextContent.Split(' ')[0]);
-            Price = Int32.Parse(element.GetElementsByClassName("price")[0].TextContent.Split(' ')[0]); //.Replace(" ", "");
-
-            Description = BookInfo.GetElementsByClassName("description")[0].TextContent;
-            var properties = BookInfo.GetElementsByClassName("property");
-            Author = properties[1].GetElementsByClassName("value")[0].TextContent
+           // Price = Int32.Parse(BookInfo.GetElementsByClassName("list-unstyled")[0].GetElementsByTagName("h2")[0].TextContent.Split('р')[0]); //.Replace(" ", "");
+           Price = Int32.Parse(BookInfo.GetElementsByTagName("h2").Where(e => e.GetAttribute("itemprop") == "price").First().TextContent.Split('р')[0]);
+            Description = BookInfo.GetElementById("tab-description").Children[0].Children[0].TextContent;
+            Author = BookInfo.GetElementsByClassName("col-sm-4")[1].GetElementsByTagName("h2")[0].TextContent
                 .Replace(" ", "")
                 .Replace("\t", "")
                 .Replace("\n", "");;
@@ -106,13 +90,17 @@ public class ParserBook
                 .Replace(" ", "")
                 .Replace("\t", "")
                 .Replace("\n", "");
-            //NumberPages = Int32.Parse(BookInfo.GetElementsByClassName("breadcrumb")[0].GetElementsByTagName("li")[3].TextContent.Replace(" ", ""));
-            var res = Int32.Parse(BookInfo.GetElementsByClassName("property")[3].GetElementsByClassName("value")[0].TextContent
-                .Replace(" ", "")
-                .Replace(" ", "")
-                .Replace("\t", "")
-                .Replace("\n", ""));;
-            Image = "tochka24.com" + BookInfo.GetElementsByClassName("big-image")[0].GetElementsByTagName("img")[0].Attributes["src"]
+            var info = BookInfo.GetElementsByClassName("table table-bordered")[0].Children[0].Children;
+            for (int i = 0; i < info.Length; i++)
+            {
+                var tds = info[i].GetElementsByTagName("td");
+                if (tds[0].TextContent == "Страниц")
+                    NumberPages = int.Parse(tds[1].TextContent);
+                if (tds[0].TextContent == "ISBN")
+                    ISBN = tds[1].TextContent;
+
+            }
+            Image = BookInfo.GetElementsByClassName("thumbnail")[0].Attributes["href"]
                 .Value
                 .Replace(" ", "")
                 .Replace("\t", "")
@@ -134,79 +122,24 @@ public class ParserBook
             NumberOfPages = 0
         };
         
-        book.SourceName = "https://tochka24.com";
+        book.SourceName = "https://speclit.su";
         return book;
     }
     
     public async Task StartParsingAsync()
     {
-        Console.WriteLine("ВВЕДИТЕ СТРАНИЦУ С КОТОРОЙ ПАРСИТЬ, БЕЗ ПРОБЕЛОВ И ДРУГИХ ЗНАКОВ");
-        //string startStr = Console.ReadLine();
         var finalBooks = new List<Book>();
-        List<Book> parsedBooks1 = new List<Book>();
-        List<Book> parsedBooks2 = new List<Book>();
-        List<Book> parsedBooks3 = new List<Book>();
-        List<Book> parsedBooks4 = new List<Book>();
-        List<Book> parsedBooks5 = new List<Book>();
-        List<Book> parsedBooks6 = new List<Book>();
-        List<Book> parsedBooks7 = new List<Book>();
-        List<Book> parsedBooks8 = new List<Book>();
         var address = "https://tochka24.com/catalog/books?limit=500&page=";
-        var count = 305;
-        var countOne = 39;
-        int start = 0;
-        Task t1 = Task.Run(async () =>
-        { 
-            parsedBooks1 = await ParseBookInfo(address, start, countOne + start);
+        var dokument = GetDocument("https://speclit.su/");
+        var groups = dokument.GetElementsByClassName("list-group-item");
+        foreach (var i in groups)
+        {
+            var refToGroup = i.GetAttribute("href") + "?limit=100&page=";
+            finalBooks.AddRange(await ParseBookInfo(refToGroup,1,5));
+        }
             
-            WriteToJSON("BooksFromTochka1.json", parsedBooks1);
-            parsedBooks1.Clear();
-            
-        });
-        Task t2 = Task.Run(async () =>
-        {
-             parsedBooks2 = await ParseBookInfo(address, countOne + start + 1, countOne * 2 + start);
-            WriteToJSON("BooksFromTochka2.json", parsedBooks2);
-            parsedBooks2.Clear();
-        });
-        Task t3 = Task.Run(async () =>
-        {
-             parsedBooks3 = await ParseBookInfo(address, countOne * 2 + start + 1, countOne * 3 + start);
-             WriteToJSON("BooksFromTochka3.json", parsedBooks3);
-             parsedBooks3.Clear();
-        });
-        Task t4 = Task.Run(async () =>
-        {
-             parsedBooks4 = await ParseBookInfo(address, countOne * 3 + start + 1, countOne * 4 + start);
-             WriteToJSON("BooksFromTochka4.json", parsedBooks4);
-             parsedBooks4.Clear();
-        });
-        Task t5 = Task.Run(async () =>
-        {
-             parsedBooks5 = await ParseBookInfo(address, start + countOne * 4 + 1, countOne * 5 + start);
-             WriteToJSON("BooksFromTochka5.json", parsedBooks5);
-             parsedBooks5.Clear();
-        });
-        Task t6 = Task.Run(async () =>
-        {
-             parsedBooks6 = await ParseBookInfo(address, start + countOne * 5 + 1, countOne * 6 + start);//196-234
-             WriteToJSON("BooksFromTochka6.json", parsedBooks6);
-             parsedBooks6.Clear();
-        });
-        Task t7 = Task.Run(async () =>
-        {
-             parsedBooks7 = await ParseBookInfo(address, start + countOne * 6 + 1, countOne * 7 + start); //235-273
-             WriteToJSON("BooksFromTochka7.json", parsedBooks7);
-             parsedBooks7.Clear();
-        });
-        Task t8 = Task.Run(async () =>
-        {
-             parsedBooks8 = await ParseBookInfo(address, start + countOne * 7 + 1, countOne * 8 + start);//274-312
-             WriteToJSON("BooksFromTochka8.json", parsedBooks8);
-             parsedBooks8.Clear();
-        });
-        Task.WaitAll(t1, t2, t3, t4,t5,t7,t8);
-        Console.ReadLine();
+            WriteToJSON("BooksFromSpeclit.json", finalBooks);
+            Console.ReadLine();
     }
 
     private void WriteToJSON(string path, List<Book> books)
