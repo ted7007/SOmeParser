@@ -30,7 +30,7 @@ public class ParserBook
 
 
                 var textWitHResultSearchElements =
-                    document2.GetElementsByClassName("product-thumb");
+                    document2.GetElementsByClassName("mm_product_element");
                 
                 if ((textWitHResultSearchElements.Length == 0))
                 {
@@ -38,7 +38,6 @@ public class ParserBook
                     continue;
                 }
                 Console.WriteLine($"Page - {i} was readed, count = {textWitHResultSearchElements.Length}");
-               // Console.WriteLine("Page - "+(i+1));
                 foreach (var bookFromList in textWitHResultSearchElements)
                 {
                     var book = ParseICollection(bookFromList);
@@ -76,31 +75,22 @@ public class ParserBook
         string ISBN = "";
         try
         {
-            string refToBook = element.Children[0].Children[0].Attributes["href"].Value;
+            string refToBook = "https://nlobooks.ru"+ element.GetElementsByClassName("_link")[0].Attributes["href"].Value;
             var BookInfo = GetDocument(refToBook);
-            BoookName = BookInfo.GetElementsByTagName("h1")[0].TextContent;
-           // Price = Int32.Parse(BookInfo.GetElementsByClassName("list-unstyled")[0].GetElementsByTagName("h2")[0].TextContent.Split('р')[0]); //.Replace(" ", "");
-           Price = Int32.Parse(BookInfo.GetElementsByTagName("h2").Where(e => e.GetAttribute("itemprop") == "price").First().TextContent.Split('р')[0]);
-            Description = BookInfo.GetElementById("tab-description").Children[0].Children[0].TextContent;
-            Author = BookInfo.GetElementsByClassName("col-sm-4")[1].GetElementsByTagName("h2")[0].TextContent
-                .Replace(" ", "")
-                .Replace("\t", "")
-                .Replace("\n", "");;
-            Genre = BookInfo.GetElementsByClassName("breadcrumb")[0].GetElementsByTagName("li")[^2].TextContent
-                .Replace(" ", "")
-                .Replace("\t", "")
-                .Replace("\n", "");
-            var info = BookInfo.GetElementsByClassName("table table-bordered")[0].Children[0].Children;
+            BoookName = element.GetElementsByClassName("mm_product_element__title _text")[0].TextContent;
+           
+            Price = Int32.Parse(BookInfo.GetElementsByClassName("mm_value product-detail__price")[0].TextContent.Split(' ')[0]);
+            Description = BookInfo.GetElementsByClassName("mm_product_description")[0].Children[0].TextContent;
+            Author = BookInfo.GetElementsByClassName("name")[0].Children[0].TextContent;
+            var info = BookInfo.GetElementsByClassName("mm_product_detail__props")[0].Children[0].TextContent.Split(' ');
             for (int i = 0; i < info.Length; i++)
             {
-                var tds = info[i].GetElementsByTagName("td");
-                if (tds[0].TextContent == "Страниц")
-                    NumberPages = int.Parse(tds[1].TextContent);
-                if (tds[0].TextContent == "ISBN")
-                    ISBN = tds[1].TextContent;
-
+                if (info[i] == "с." && i != 0)
+                    NumberPages = int.Parse(info[i - 1]);
             }
-            Image = BookInfo.GetElementsByClassName("thumbnail")[0].Attributes["href"]
+
+            ISBN = BookInfo.GetElementsByClassName("mm_product_detail__props")[0].Children[1].TextContent.Split(' ')[1];
+            Image ="https://nlobooks.ru"+ BookInfo.GetElementsByClassName("mm_product_detail__image")[0].Children[0].Attributes["src"]
                 .Value
                 .Replace(" ", "")
                 .Replace("\t", "")
@@ -119,26 +109,21 @@ public class ParserBook
             Name = BoookName,
             Remainder = Remainder,
             Price = Price,
-            NumberOfPages = 0
+            NumberOfPages = NumberPages,
+            ISBN = ISBN
         };
         
-        book.SourceName = "https://speclit.su";
+        book.SourceName = "https://nlobooks.ru";
         return book;
     }
     
     public async Task StartParsingAsync()
     {
         var finalBooks = new List<Book>();
-        var address = "https://tochka24.com/catalog/books?limit=500&page=";
-        var dokument = GetDocument("https://speclit.su/");
-        var groups = dokument.GetElementsByClassName("list-group-item");
-        foreach (var i in groups)
-        {
-            var refToGroup = i.GetAttribute("href") + "?limit=100&page=";
-            finalBooks.AddRange(await ParseBookInfo(refToGroup,1,5));
-        }
+        var address = "https://www.nlobooks.ru/books/?PAGEN_1=";       // 118
+        finalBooks.AddRange(await ParseBookInfo(address, 1, 118));
             
-            WriteToJSON("BooksFromSpeclit.json", finalBooks);
+            WriteToJSON("BooksFromNlobooks.json", finalBooks);
             Console.ReadLine();
     }
 
