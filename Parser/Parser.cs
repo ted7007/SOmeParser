@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.ComponentModel;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
 using AngleSharp;
@@ -18,6 +19,8 @@ public class ParserBook
     }
     private async Task<List<Book>> ParseBookInfo(string urlWithCollection,int startPage, int endPage)
     {
+        int countBooks = endPage;
+        endPage = endPage / 60;
         Console.WriteLine($"Started thread since {startPage} to {endPage}");
         var books = new List<Book>();
         DateTime nowThread = DateTime.Now;
@@ -26,20 +29,33 @@ public class ParserBook
             try
             {
                 DateTime now = DateTime.Now;
-                var document2 = GetDocument(urlWithCollection + Convert.ToString(i));
+                var resRef = "http://" + urlWithCollection + "&n9=" + Convert.ToString(i * 60);
+                var document2 = GetDocument(resRef);
 
 
                 var textWitHResultSearchElements =
-                    document2.GetElementsByClassName("mm_product_element");
-                
-                if ((textWitHResultSearchElements.Length == 0))
+                    document2.GetElementsByTagName("p").ToList();
+                int count = 60;
+                if (i == endPage)
+                    countBooks = countBooks % 60;
+                int curCountInCol = 0;
+                var list = new List<IElement>();
+                foreach (var j in textWitHResultSearchElements)
+                {
+                    if (j.ChildElementCount == 6)
+                        list.Add(j);
+
+                }
+                if ((textWitHResultSearchElements.Count == 0))
                 {
                     Console.WriteLine($"Page - {i}: Книги не найдены");
                     continue;
                 }
-                Console.WriteLine($"Page - {i} was readed, count = {textWitHResultSearchElements.Length}");
-                foreach (var bookFromList in textWitHResultSearchElements)
+                Console.WriteLine($"Page - {i} was readed, count = {textWitHResultSearchElements.Count}");
+                foreach (var bookFromList in list)
                 {
+                    if(textWitHResultSearchElements.IndexOf(bookFromList) > 59)
+                        break;
                     var book = ParseICollection(bookFromList);
                     books.Add(book);
                     //Console.WriteLine($"Got book -  {book.Name}; Price - {book.Price}; Remainder - {book.Remainder}");
@@ -75,26 +91,29 @@ public class ParserBook
         string ISBN = "";
         try
         {
-            string refToBook = "https://nlobooks.ru"+ element.GetElementsByClassName("_link")[0].Attributes["href"].Value;
-            var BookInfo = GetDocument(refToBook);
-            BoookName = element.GetElementsByClassName("mm_product_element__title _text")[0].TextContent;
-           
-            Price = Int32.Parse(BookInfo.GetElementsByClassName("mm_value product-detail__price")[0].TextContent.Split(' ')[0]);
-            Description = BookInfo.GetElementsByClassName("mm_product_description")[0].Children[0].TextContent;
-            Author = BookInfo.GetElementsByClassName("name")[0].Children[0].TextContent;
-            var info = BookInfo.GetElementsByClassName("mm_product_detail__props")[0].Children[0].TextContent.Split(' ');
+            var NameAndAuthor = element.GetElementsByTagName("b")[0].TextContent.Split(' ');
+            for (int i = 0; i < NameAndAuthor.Length; i++)
+            {
+                if (i < 2)
+                    Author += NameAndAuthor[i] + " ";
+                else
+                    BoookName += NameAndAuthor[i] + " ";
+            }
+            var info = element.TextContent.Split(' ');
+            bool isDesc = false;
             for (int i = 0; i < info.Length; i++)
             {
+                if (info[i] == "Цена:" && i < info.Length)
+                    Price = Int32.Parse(info[i+1]);
                 if (info[i] == "с." && i != 0)
                     NumberPages = int.Parse(info[i - 1]);
+                if (info[i] == "Купить")
+                    isDesc = true;
+                if (info[i] == "Состояние:")
+                    isDesc = false;
+                if (isDesc)
+                    Description += info[i] + " ";
             }
-
-            ISBN = BookInfo.GetElementsByClassName("mm_product_detail__props")[0].Children[1].TextContent.Split(' ')[1];
-            Image ="https://nlobooks.ru"+ BookInfo.GetElementsByClassName("mm_product_detail__image")[0].Children[0].Attributes["src"]
-                .Value
-                .Replace(" ", "")
-                .Replace("\t", "")
-                .Replace("\n", "");;
         }
         catch (Exception ex)
         {
@@ -113,17 +132,32 @@ public class ParserBook
             ISBN = ISBN
         };
         
-        book.SourceName = "https://nlobooks.ru";
+        book.SourceName = "http://www.alib.ru/bs.php4?bs=veronika_book";
         return book;
     }
     
     public async Task StartParsingAsync()
     {
         var finalBooks = new List<Book>();
-        var address = "https://www.nlobooks.ru/books/?PAGEN_1=";       // 118
-        finalBooks.AddRange(await ParseBookInfo(address, 1, 118));
+        var address = "http://www.alib.ru/bs.php4?bs=veronika_book";
+        var file = GetDocument(address);
+        var col = file.GetElementsByTagName("table")[7].GetElementsByTagName("tr")[0].Children[1].Children;
+        IElement parseElement = null;
+        for (int i = 0; i < col.Length; i++)
+        {
+            if (col[i].TextContent.Contains("По цене"))
+                parseElement = col[i + 1];
+        }
+
+        foreach (var i in parseElement.Children)
+        {
+             var refToPage = i.Children[0].GetAttribute("href").Replace("//", "");
+             var count = int.Parse(i.TextContent.Split('(')[1].Split(')')[0]);
+             finalBooks.AddRange(await ParseBookInfo(refToPage, 0, count));
+        }
+        //inalBooks.AddRange(await ParseBookInfo(address, 1, 118));
             
-            WriteToJSON("BooksFromNlobooks.json", finalBooks);
+            WriteToJSON("BooksFromVeronika_book.json", finalBooks);
             Console.ReadLine();
     }
 
