@@ -30,7 +30,7 @@ public class ParserBook
 
 
                 var textWitHResultSearchElements =
-                    document2.GetElementsByClassName("mm_product_element");
+                    document2.GetElementsByClassName("grid-list catalog-list")[0].Children;
                 
                 if ((textWitHResultSearchElements.Length == 0))
                 {
@@ -75,26 +75,30 @@ public class ParserBook
         string ISBN = "";
         try
         {
-            string refToBook = "https://nlobooks.ru"+ element.GetElementsByClassName("_link")[0].Attributes["href"].Value;
+            string refToBook = "https://knigivdom.ru"+ element.GetElementsByClassName("img-ratio__inner")[0].Children[0].Attributes["href"].Value;
             var BookInfo = GetDocument(refToBook);
-            BoookName = element.GetElementsByClassName("mm_product_element__title _text")[0].TextContent;
-           
-            Price = Int32.Parse(BookInfo.GetElementsByClassName("mm_value product-detail__price")[0].TextContent.Split(' ')[0]);
-            Description = BookInfo.GetElementsByClassName("mm_product_description")[0].Children[0].TextContent;
-            Author = BookInfo.GetElementsByClassName("name")[0].Children[0].TextContent;
-            var info = BookInfo.GetElementsByClassName("mm_product_detail__props")[0].Children[0].TextContent.Split(' ');
-            for (int i = 0; i < info.Length; i++)
+            switch (element.ClassName)
             {
-                if (info[i] == "с." && i != 0)
-                    NumberPages = int.Parse(info[i - 1]);
+                case "product-preview    is-zero-count-hidden  is-more-variants   ":
+                    var info = BookInfo.GetElementsByClassName("option-selector");//[0];//.Children[0]
+                       // .TextContent;
+                    Author = BookInfo.GetElementsByClassName("name")[0].Children[0].TextContent;
+                    BoookName = element.GetElementsByClassName("product__title heading")[0].TextContent;
+           
+                    Price = Int32.Parse(BookInfo.GetElementsByClassName("mm_value product-detail__price")[0].TextContent.Split(' ')[0]);
+                    Description = BookInfo.GetElementsByClassName("mm_product_description")[0].Children[0].TextContent;
+                    ISBN = BookInfo.GetElementsByClassName("mm_product_detail__props")[0].Children[1].TextContent.Split(' ')[1];
+                    Image ="https://nlobooks.ru"+ BookInfo.GetElementsByClassName("mm_product_detail__image")[0].Children[0].Attributes["src"]
+                        .Value
+                        .Replace(" ", "")
+                        .Replace("\t", "")
+                        .Replace("\n", "");; 
+                    break;
+                case "product-preview    is-zero-count-hidden     ":
+                    
+                    break;
             }
-
-            ISBN = BookInfo.GetElementsByClassName("mm_product_detail__props")[0].Children[1].TextContent.Split(' ')[1];
-            Image ="https://nlobooks.ru"+ BookInfo.GetElementsByClassName("mm_product_detail__image")[0].Children[0].Attributes["src"]
-                .Value
-                .Replace(" ", "")
-                .Replace("\t", "")
-                .Replace("\n", "");;
+            
         }
         catch (Exception ex)
         {
@@ -120,11 +124,11 @@ public class ParserBook
     public async Task StartParsingAsync()
     {
         var finalBooks = new List<Book>();
-        var address = "https://www.nlobooks.ru/books/?PAGEN_1=";       // 118
-        finalBooks.AddRange(await ParseBookInfo(address, 1, 118));
+        var address = "https://knigivdom.ru/collection/all?page=";       // 114
+        finalBooks.AddRange(await ParseBookInfo(address, 1, 1));
             
-            WriteToJSON("BooksFromNlobooks.json", finalBooks);
-            Console.ReadLine();
+        WriteToJSON("BooksFromNlobooks.json", finalBooks);
+        Console.ReadLine();
     }
 
     private void WriteToJSON(string path, List<Book> books)
