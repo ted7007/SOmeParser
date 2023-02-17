@@ -16,7 +16,7 @@ public class ParserBook
         var context = BrowsingContext.New(config);
         return context.OpenAsync(url).Result;
     }
-    private async Task<List<Book>> ParseBookInfo(string urlWithCollection,int startPage, int endPage)
+    private List<Book> ParseBookInfo(string urlWithCollection,int startPage, int endPage)
     {
         Console.WriteLine($"Started thread since {startPage} to {endPage}");
         var books = new List<Book>();
@@ -43,8 +43,6 @@ public class ParserBook
                 {
                     var book = ParseICollection(bookFromList);
                     books.Add(book);
-                    //Console.WriteLine($"Got book -  {book.Name}; Price - {book.Price}; Remainder - {book.Remainder}");
-                    //Console.WriteLine();
                 }
                 DateTime end = DateTime.Now;
                 Console.WriteLine($"Page - {i} was parsed, count in thread = {books.Count}; time - {new TimeSpan((end-now).Ticks).TotalMinutes} min");
@@ -76,47 +74,55 @@ public class ParserBook
         string Genre = "";
         String Image = "";
         int NumberPages = 0;
+        string ISBN = "";
+        string PublisherName = "";
         try
         {
             BoookName = BookInfo.GetElementsByTagName("h1")[0].TextContent;
-           // Remainder = Int32.Parse(
-            //    .TextContent.Split(' ')[0]);
-            //var element2 = BookInfo.GetElementsByClassName("stock")[0].Children[0];
-            //var element4 = element2.TextContent.Split(' ')[3];
             var div = BookInfo.QuerySelector("div.stock strong");
             if(div != null)
             {
-               // string res;
                 Remainder = Int32.Parse(div.TextContent.Split(' ')[0]);
             }
-            // return null;
-
-
-            
-            //Price = Int32.Parse(BookInfo.QuerySelector("div.price").TextContent.Replace(" ", ""));//GetElementsByClassName("price")[0].TextContent.Split(' ')[0]);
             Price = Int32.Parse(element.GetElementsByClassName("price")[0].TextContent.Split(' ')[0]); //.Replace(" ", "");
-
-            Description = BookInfo.GetElementsByClassName("description")[0].TextContent;
-            var properties = BookInfo.GetElementsByClassName("property");
-            Author = properties[1].GetElementsByClassName("value")[0].TextContent
-                .Replace(" ", "")
+            Description = BookInfo.GetElementsByClassName("description")[0].TextContent
                 .Replace("\t", "")
                 .Replace("\n", "");;
             Genre = BookInfo.GetElementsByClassName("breadcrumb")[0].GetElementsByTagName("li")[^2].TextContent
-                .Replace(" ", "")
                 .Replace("\t", "")
                 .Replace("\n", "");
-            //NumberPages = Int32.Parse(BookInfo.GetElementsByClassName("breadcrumb")[0].GetElementsByTagName("li")[3].TextContent.Replace(" ", ""));
-            var res = Int32.Parse(BookInfo.GetElementsByClassName("property")[3].GetElementsByClassName("value")[0].TextContent
-                .Replace(" ", "")
-                .Replace(" ", "")
-                .Replace("\t", "")
-                .Replace("\n", ""));;
+            
             Image = "tochka24.com" + BookInfo.GetElementsByClassName("big-image")[0].GetElementsByTagName("img")[0].Attributes["src"]
                 .Value
                 .Replace(" ", "")
                 .Replace("\t", "")
                 .Replace("\n", "");;
+            var properties = BookInfo.GetElementsByClassName("property");
+            foreach (var i in properties)
+            {
+                var label = i.GetElementsByClassName("label")[0].TextContent;
+                var value = i.GetElementsByClassName("value")[0].TextContent
+                    .Replace(" ", "")
+                    .Replace("\t", "")
+                    .Replace("\n", "");
+                switch (label)
+                {
+                    case "Автор":
+                        Author = value;
+                        break;
+                    case "ISBN/Артикул":
+                        ISBN = value;
+                        break;
+                    case "Количество страниц":
+                        NumberPages = int.Parse(value);
+                        break;
+                    case "Издательство":
+                        PublisherName = value;
+                        break;
+                    
+                }
+            }
+
         }
         catch (Exception ex)
         {
@@ -131,84 +137,84 @@ public class ParserBook
             Name = BoookName,
             Remainder = Remainder,
             Price = Price,
-            NumberOfPages = 0
+            NumberOfPages = NumberPages,
+            ISBN = ISBN,
+            PublisherName = PublisherName,
+            ParsingDate = DateTime.Today.ToUniversalTime()
         };
         
-        book.SourceName = "https://tochka24.com";
+        book.SourceName = refToBook;
         return book;
     }
-    
-    public async Task StartParsingAsync()
+
+
+    public async Task StartParsingAsyncNew(string address, int firstPage, int lastPage, int countTasks)
     {
-        Console.WriteLine("ВВЕДИТЕ СТРАНИЦУ С КОТОРОЙ ПАРСИТЬ, БЕЗ ПРОБЕЛОВ И ДРУГИХ ЗНАКОВ");
-        //string startStr = Console.ReadLine();
+        if(lastPage-firstPage < countTasks)
+           for(int i = 0; i < 10; i++) Console.WriteLine("WARNING!!! Count task more than count parsing pages. CAN ME ERROR");
+        DateTime start = DateTime.Now;  // Если счет страниц начинается с 1, то количество страниц = ( последняя страница - 1 )
+         // 305 по 500 книг. Если выбрать 0 страницу - покажется 1-ая. Если выбрать 306-ю - не выдаст книг.
+
+         int countPages = lastPage;
+        if (firstPage > 0)
+            countPages = lastPage - firstPage;
+        Task[] tasks = new Task[countTasks+1];
+        int countPagesForOneTask = countPages / countTasks;
+        int lastParsedPage = 0;
+        int startPage = firstPage;
         var finalBooks = new List<Book>();
-        List<Book> parsedBooks1 = new List<Book>();
-        List<Book> parsedBooks2 = new List<Book>();
-        List<Book> parsedBooks3 = new List<Book>();
-        List<Book> parsedBooks4 = new List<Book>();
-        List<Book> parsedBooks5 = new List<Book>();
-        List<Book> parsedBooks6 = new List<Book>();
-        List<Book> parsedBooks7 = new List<Book>();
-        List<Book> parsedBooks8 = new List<Book>();
-        var address = "https://tochka24.com/catalog/books?limit=500&page=";
-        var count = 305;
-        var countOne = 39;
-        int start = 0;
-        Task t1 = Task.Run(async () =>
-        { 
-            parsedBooks1 = await ParseBookInfo(address, start, countOne + start);
-            
-            WriteToJSON("BooksFromTochka1.json", parsedBooks1);
-            parsedBooks1.Clear();
-            
-        });
-        Task t2 = Task.Run(async () =>
+        for (int i = 0; i < countTasks; i++)
         {
-             parsedBooks2 = await ParseBookInfo(address, countOne + start + 1, countOne * 2 + start);
-            WriteToJSON("BooksFromTochka2.json", parsedBooks2);
-            parsedBooks2.Clear();
-        });
-        Task t3 = Task.Run(async () =>
+            int endPage = startPage + countPagesForOneTask;
+            int numberTask = i;
+            int curStartPage = startPage; // чтоб не изменялось после старта потока
+            var task = Task.Factory.StartNew(() =>
+            {
+                var parsedBooks = ParseBookInfo(address, curStartPage, endPage - 1);
+                lock (finalBooks)
+                {
+                    finalBooks.AddRange(parsedBooks);
+                }
+            });
+            lastParsedPage = endPage-1;
+            startPage = lastParsedPage + 1;
+            tasks[i] = task;
+        }
+
+        Task lastTask = null;
+        if (lastParsedPage != lastPage)
         {
-             parsedBooks3 = await ParseBookInfo(address, countOne * 2 + start + 1, countOne * 3 + start);
-             WriteToJSON("BooksFromTochka3.json", parsedBooks3);
-             parsedBooks3.Clear();
-        });
-        Task t4 = Task.Run(async () =>
+            lastTask =  Task.Factory.StartNew(() =>
+            {
+                var parsedBooks = ParseBookInfo(address, lastParsedPage + 1, lastPage);
+                lock (finalBooks)
+                {
+                    finalBooks.AddRange(parsedBooks);
+                }
+            });
+            tasks[countTasks] = lastTask;
+        }
+        else
         {
-             parsedBooks4 = await ParseBookInfo(address, countOne * 3 + start + 1, countOne * 4 + start);
-             WriteToJSON("BooksFromTochka4.json", parsedBooks4);
-             parsedBooks4.Clear();
-        });
-        Task t5 = Task.Run(async () =>
-        {
-             parsedBooks5 = await ParseBookInfo(address, start + countOne * 4 + 1, countOne * 5 + start);
-             WriteToJSON("BooksFromTochka5.json", parsedBooks5);
-             parsedBooks5.Clear();
-        });
-        Task t6 = Task.Run(async () =>
-        {
-             parsedBooks6 = await ParseBookInfo(address, start + countOne * 5 + 1, countOne * 6 + start);//196-234
-             WriteToJSON("BooksFromTochka6.json", parsedBooks6);
-             parsedBooks6.Clear();
-        });
-        Task t7 = Task.Run(async () =>
-        {
-             parsedBooks7 = await ParseBookInfo(address, start + countOne * 6 + 1, countOne * 7 + start); //235-273
-             WriteToJSON("BooksFromTochka7.json", parsedBooks7);
-             parsedBooks7.Clear();
-        });
-        Task t8 = Task.Run(async () =>
-        {
-             parsedBooks8 = await ParseBookInfo(address, start + countOne * 7 + 1, countOne * 8 + start);//274-312
-             WriteToJSON("BooksFromTochka8.json", parsedBooks8);
-             parsedBooks8.Clear();
-        });
-        Task.WaitAll(t1, t2, t3, t4,t5,t7,t8);
-        Console.ReadLine();
+            tasks[countTasks] = Task.FromResult(new List<Book>());
+        }
+        // 1 task - 0,50 min - x1 work
+        // 8 tasks - 0,55 min - x8 work
+        // 16 tasks - 0,68 min but x16 work
+        Task.WaitAll(tasks);
+        DateTime end = DateTime.Now;
+        Console.WriteLine($"Parsing finished. It got {(end-start).TotalMinutes} minutes; ");
+        WriteToJSON($"Tochka-{DateTime.Today.ToShortDateString()}.json", finalBooks);
     }
 
+    private void DoParse(int taskNumber,int startPage, int endPage)
+    {
+        Console.WriteLine($"[{taskNumber} | {DateTime.Now}]: Started parse since {startPage} to {endPage}");
+        Thread.Sleep(2000);
+        Console.WriteLine($"[{taskNumber} | {DateTime.Now}]: Finished parse since {startPage} to {endPage}");
+        
+    }
+    
     private void WriteToJSON(string path, List<Book> books)
     {
         var json = JsonConvert.SerializeObject(books);

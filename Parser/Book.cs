@@ -22,4 +22,11 @@ public class Book
     public int NumberOfPages { get; set; }
 
     public string Genre { get; set; }
+
+    public string PublisherName { get; set; }
+
+    public string ISBN { get; set; }
+
+    public DateTime ParsingDate { get; set; }
+    
 }

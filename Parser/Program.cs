@@ -6,4 +6,4 @@ Console.WriteLine("Hello, World!");
 
 ParserBook parser = new ParserBook();
 
-parser.StartParsingAsync();
+parser.StartParsingAsyncNew("https://tochka24.com/catalog/books?limit=500&page=", 1, 2, 10);
