@@ -1,20 +1,46 @@
-﻿using System.Text;
+﻿using System.Net;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
 using AngleSharp;
 using AngleSharp.Dom;
 using BookParser;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Parser;
 
-public class ParserBook
+public class BookParser
 {
     public static IDocument GetDocument(string url)
     {
         var config = Configuration.Default.WithDefaultLoader().WithDefaultCookies();
         var context = BrowsingContext.New(config);
-        return context.OpenAsync(url).Result;
+        var document = context.OpenAsync(url).Result;
+        return document;
+
+    }
+
+    private IDocument GetPageWithBooks(string url, string className, string siteName)
+    {
+        bool isSuccessful = false;
+        int countTries = 0;
+        while (!isSuccessful)
+        {
+            var document = GetDocument(url);
+            if (document.GetElementsByClassName(className).Length != 0)
+            {
+                isSuccessful = true;
+                break;
+            }
+            
+            if (countTries < 10)
+            {
+                Console.WriteLine($"page wasnt got on url - {url}; Reloading..");
+                continue;
+            }
+
+            WritePageToJSON(url, $"{siteName}-unloadedPages.json");
     }
     private List<Book> ParseBookInfo(string urlWithCollection,int startPage, int endPage)
     {
@@ -28,10 +54,10 @@ public class ParserBook
             {
                 DateTime now = DateTime.Now;
                 var document2 = GetDocument(urlWithCollection + Convert.ToString(i));
-
+                
 
                 var bookElementsFromPage =
-                    document2.GetElementsByClassName("woo-entry-inner clr");
+                    document2.GetElementsByClassName("catalog-section-item intec-grid-item-3 intec-grid-item-700-2 intec-grid-item-720-3 intec-grid-item-950-2");
                 
                 if ((bookElementsFromPage.Length == 0))
                 {
@@ -39,7 +65,6 @@ public class ParserBook
                     continue;
                 }
                 Console.WriteLine($"Page - {i} was readed, count = {bookElementsFromPage.Length}");
-               // Console.WriteLine("Page - "+(i+1));
                 foreach (var bookFromList in bookElementsFromPage)
                 {
                     var book = ParseBookElement(bookFromList);
@@ -79,54 +104,21 @@ public class ParserBook
         string PublisherName = "";
         try
         {
-            refToBook = element.GetElementsByClassName("woo-entry-image clr")[0].Children[0].Attributes["href"].Value;
-            //Console.WriteLine("AddToRef is " + refToBook);
+            refToBook = "https://primbook.ru" + element.GetElementsByClassName("catalog-section-item-image-wrapper intec-image-effect")[0].Attributes["href"].Value;
             var BookInfo = GetDocument(refToBook);
-            BoookName = BookInfo.GetElementsByClassName("single-post-title product_title entry-title")[0].TextContent;
-            var priceRes = element.GetElementsByClassName("woocommerce-Price-amount amount")[0].Children[0].TextContent.Split(',')[0];
-            Price = int.Parse(priceRes);
-            var wordWithPrice = BookInfo.GetElementsByClassName("stock in-stock")[0].TextContent.Split(' ');
-            foreach (var i in wordWithPrice)
-            {
-                if (int.TryParse(i, out Remainder))
-                    break;
-            }
-            Description = BookInfo.GetElementsByClassName("woocommerce-product-details__short-description")[0].TextContent
+            GetProps(element.Attributes["data-data"].Value, out BoookName, out Price, out Remainder);
+            Description = BookInfo.GetElementsByClassName("catalog-element-section-description intec-ui-markup-text")[0].TextContent
                 .Replace("\t", "")
                 .Replace("\n", "");;
-            Genre = BookInfo.GetElementsByClassName("posted_in")[0].GetElementsByTagName("a")[0].TextContent
+            Genre = BookInfo.GetElementsByClassName("breadcrumb-item")[^1].TextContent
                 .Replace("\t", "")
                 .Replace("\n", "");
             
-            Image = BookInfo.GetElementsByClassName("woocommerce-product-gallery__wrapper")[0].GetElementsByTagName("img")[0].Attributes["src"]
+            Image = "https://primbook.ru" + BookInfo.GetElementsByClassName("catalog-element-gallery-picture intec-image")[0].Attributes["href"]
                 .Value
                 .Replace(" ", "")
                 .Replace("\t", "")
                 .Replace("\n", "");;
-            var properties = BookInfo.GetElementsByClassName("woocommerce-product-attributes shop_attributes")[0].GetElementsByTagName("tr");
-            foreach (var i in properties)
-            {
-                var label = i.GetElementsByTagName("th")[0].TextContent;
-                var value = i.GetElementsByTagName("td")[0].TextContent
-                    .Replace("\t", "")
-                    .Replace("\n", "");
-                switch (label.ToLower())
-                {
-                    case "автор":
-                        Author = value;
-                        break;
-                    case "isbn/issn":
-                        ISBN = value;
-                        break;
-                    case "кол-во страниц":
-                        NumberPages = int.Parse(value);
-                        break;
-                    case "издательство":
-                        PublisherName = value;
-                        break;
-                    
-                }
-            }
 
         }
         catch (Exception ex)
@@ -155,16 +147,28 @@ public class ParserBook
         return book;
     }
 
-
-    public void StartParsingAsyncNew(string address, int firstPage, int lastPage, int countTasks)
+    private void GetProps(string json, out string bookName, out int price, out int quantity)
     {
-        if(lastPage-firstPage < countTasks)
+        var info =JObject.Parse(json);
+        bookName = info.GetValue("name").ToString();
+        price = (int)info["prices"].First["discount"]["value"].ToObject<float>();
+        bool available = info["available"].ToObject<bool>();
+        if(available)
+            quantity = info["quantity"]["value"].ToObject<int>();
+        else
+            quantity = 0;
+        
+    }
+
+    public List<Book> StartParsingAsyncNew(string address, int firstPage, int lastPage, int countTasks)
+    {
+        if(lastPage-firstPage < countTasks && countTasks!=1)
            for(int i = 0; i < 10; i++) Console.WriteLine("WARNING!!! Count task more than count parsing pages. CAN ME ERROR");
         DateTime start = DateTime.Now;  // Если счет страниц начинается с 1, то количество страниц = ( последняя страница - 1 )
          // 305 по 500 книг. Если выбрать 0 страницу - покажется 1-ая. Если выбрать 306-ю - не выдаст книг.
-
+         Console.WriteLine($"[{start.ToShortTimeString()}] start parsing address {address}");
          int countPages = lastPage;
-        if (firstPage > 0)
+        if (firstPage > 0 && lastPage!=1)
             countPages = lastPage - firstPage;
         Task[] tasks = new Task[countTasks+1];
         int countPagesForOneTask = countPages / countTasks;
@@ -190,7 +194,7 @@ public class ParserBook
         }
 
         Task lastTask = null;
-        if (lastParsedPage != lastPage)
+        if (lastParsedPage < lastPage)
         {
             lastTask =  Task.Factory.StartNew(() =>
             {
@@ -212,14 +216,9 @@ public class ParserBook
         Task.WaitAll(tasks);
         DateTime end = DateTime.Now;
         Console.WriteLine($"Parsing finished. It got {(end-start).TotalMinutes} minutes; ");
-        WriteToJSON($"Igra-Slov-{DateTime.Today.ToShortDateString()}.json", finalBooks);
+        return finalBooks;
     }
 
-    private void SaveSite(string address, int firstPage, int lastPage, int countTasks)
-    {
-          //TODO
-    }
-    
     private void WriteToJSON(string path, List<Book> books)
     {
         var json = JsonConvert.SerializeObject(books);
@@ -242,3 +241,14 @@ public class ParserBook
         return null;
     }
 }
+
+    private void WritePageToJSON(string url, string path)
+    {
+        bool isFileExists = File.Exists(path);
+        if (!isFileExists)
+        {
+            List<string> urls = new List<string>() { url };
+            JObject jObject = new JObject(urls);
+            
+        }
+    }
