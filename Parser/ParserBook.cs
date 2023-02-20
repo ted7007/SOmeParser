@@ -12,7 +12,7 @@ public class ParserBook
 {
     public static IDocument GetDocument(string url)
     {
-        var config = Configuration.Default.WithDefaultLoader();
+        var config = Configuration.Default.WithDefaultLoader().WithDefaultCookies();
         var context = BrowsingContext.New(config);
         return context.OpenAsync(url).Result;
     }
@@ -21,6 +21,7 @@ public class ParserBook
         Console.WriteLine($"Started thread since {startPage} to {endPage}");
         var books = new List<Book>();
         DateTime nowThread = DateTime.Now;
+        
         for(int i = startPage; i <= endPage; i++)
         {
             try
@@ -29,20 +30,24 @@ public class ParserBook
                 var document2 = GetDocument(urlWithCollection + Convert.ToString(i));
 
 
-                var textWitHResultSearchElements =
-                    document2.GetElementsByClassName("product-card");
+                var bookElementsFromPage =
+                    document2.GetElementsByClassName("woo-entry-inner clr");
                 
-                if ((textWitHResultSearchElements.Length == 0))
+                if ((bookElementsFromPage.Length == 0))
                 {
-                    Console.WriteLine($"Page - {i}: Книги не найдены");
+                    Console.WriteLine($"[{DateTime.Now}]Page - {i}: Книги не найдены в теле документа. Status code - {document2.StatusCode}");
                     continue;
                 }
-                Console.WriteLine($"Page - {i} was readed, count = {textWitHResultSearchElements.Length}");
+                Console.WriteLine($"Page - {i} was readed, count = {bookElementsFromPage.Length}");
                // Console.WriteLine("Page - "+(i+1));
-                foreach (var bookFromList in textWitHResultSearchElements)
+                foreach (var bookFromList in bookElementsFromPage)
                 {
-                    var book = ParseICollection(bookFromList);
+                    var book = ParseBookElement(bookFromList);
+                    if(book is null)
+                        continue;
                     books.Add(book);
+                    if(books.Count%100==0)
+                        Console.WriteLine($"[{DateTime.Now.ToShortTimeString()}]: was parsed {books.Count} books");
                 }
                 DateTime end = DateTime.Now;
                 Console.WriteLine($"Page - {i} was parsed, count in thread = {books.Count}; time - {new TimeSpan((end-now).Ticks).TotalMinutes} min");
@@ -59,13 +64,9 @@ public class ParserBook
         return books;
     }
 
-    private Book ParseICollection(IElement element)
+    private Book? ParseBookElement(IElement element)
     {
-        
-        string refToBook = element.GetElementsByTagName("a")[0]
-            .Attributes["href"].Value;
-        //Console.WriteLine("AddToRef is " + refToBook);
-        var BookInfo = GetDocument(refToBook);
+        string refToBook = "";
         string BoookName ="";
         int Remainder =0;
         int Price=0;
@@ -78,45 +79,49 @@ public class ParserBook
         string PublisherName = "";
         try
         {
-            BoookName = BookInfo.GetElementsByTagName("h1")[0].TextContent;
-            var div = BookInfo.QuerySelector("div.stock strong");
-            if(div != null)
+            refToBook = element.GetElementsByClassName("woo-entry-image clr")[0].Children[0].Attributes["href"].Value;
+            //Console.WriteLine("AddToRef is " + refToBook);
+            var BookInfo = GetDocument(refToBook);
+            BoookName = BookInfo.GetElementsByClassName("single-post-title product_title entry-title")[0].TextContent;
+            var priceRes = element.GetElementsByClassName("woocommerce-Price-amount amount")[0].Children[0].TextContent.Split(',')[0];
+            Price = int.Parse(priceRes);
+            var wordWithPrice = BookInfo.GetElementsByClassName("stock in-stock")[0].TextContent.Split(' ');
+            foreach (var i in wordWithPrice)
             {
-                Remainder = Int32.Parse(div.TextContent.Split(' ')[0]);
+                if (int.TryParse(i, out Remainder))
+                    break;
             }
-            Price = Int32.Parse(element.GetElementsByClassName("price")[0].TextContent.Split(' ')[0]); //.Replace(" ", "");
-            Description = BookInfo.GetElementsByClassName("description")[0].TextContent
+            Description = BookInfo.GetElementsByClassName("woocommerce-product-details__short-description")[0].TextContent
                 .Replace("\t", "")
                 .Replace("\n", "");;
-            Genre = BookInfo.GetElementsByClassName("breadcrumb")[0].GetElementsByTagName("li")[^2].TextContent
+            Genre = BookInfo.GetElementsByClassName("posted_in")[0].GetElementsByTagName("a")[0].TextContent
                 .Replace("\t", "")
                 .Replace("\n", "");
             
-            Image = "tochka24.com" + BookInfo.GetElementsByClassName("big-image")[0].GetElementsByTagName("img")[0].Attributes["src"]
+            Image = BookInfo.GetElementsByClassName("woocommerce-product-gallery__wrapper")[0].GetElementsByTagName("img")[0].Attributes["src"]
                 .Value
                 .Replace(" ", "")
                 .Replace("\t", "")
                 .Replace("\n", "");;
-            var properties = BookInfo.GetElementsByClassName("property");
+            var properties = BookInfo.GetElementsByClassName("woocommerce-product-attributes shop_attributes")[0].GetElementsByTagName("tr");
             foreach (var i in properties)
             {
-                var label = i.GetElementsByClassName("label")[0].TextContent;
-                var value = i.GetElementsByClassName("value")[0].TextContent
-                    .Replace(" ", "")
+                var label = i.GetElementsByTagName("th")[0].TextContent;
+                var value = i.GetElementsByTagName("td")[0].TextContent
                     .Replace("\t", "")
                     .Replace("\n", "");
-                switch (label)
+                switch (label.ToLower())
                 {
-                    case "Автор":
+                    case "автор":
                         Author = value;
                         break;
-                    case "ISBN/Артикул":
+                    case "isbn/issn":
                         ISBN = value;
                         break;
-                    case "Количество страниц":
+                    case "кол-во страниц":
                         NumberPages = int.Parse(value);
                         break;
-                    case "Издательство":
+                    case "издательство":
                         PublisherName = value;
                         break;
                     
@@ -128,6 +133,9 @@ public class ParserBook
         {
        //     Console.WriteLine($"{DateTime.Now} : ERROR for book - {ex.Message}");
         }
+
+        if (string.IsNullOrEmpty(refToBook))
+            return null;
         Book book = new Book()
         {
             Author = Author,
@@ -148,7 +156,7 @@ public class ParserBook
     }
 
 
-    public async Task StartParsingAsyncNew(string address, int firstPage, int lastPage, int countTasks)
+    public void StartParsingAsyncNew(string address, int firstPage, int lastPage, int countTasks)
     {
         if(lastPage-firstPage < countTasks)
            for(int i = 0; i < 10; i++) Console.WriteLine("WARNING!!! Count task more than count parsing pages. CAN ME ERROR");
@@ -204,15 +212,12 @@ public class ParserBook
         Task.WaitAll(tasks);
         DateTime end = DateTime.Now;
         Console.WriteLine($"Parsing finished. It got {(end-start).TotalMinutes} minutes; ");
-        WriteToJSON($"Tochka-{DateTime.Today.ToShortDateString()}.json", finalBooks);
+        WriteToJSON($"Igra-Slov-{DateTime.Today.ToShortDateString()}.json", finalBooks);
     }
 
-    private void DoParse(int taskNumber,int startPage, int endPage)
+    private void SaveSite(string address, int firstPage, int lastPage, int countTasks)
     {
-        Console.WriteLine($"[{taskNumber} | {DateTime.Now}]: Started parse since {startPage} to {endPage}");
-        Thread.Sleep(2000);
-        Console.WriteLine($"[{taskNumber} | {DateTime.Now}]: Finished parse since {startPage} to {endPage}");
-        
+          //TODO
     }
     
     private void WriteToJSON(string path, List<Book> books)
